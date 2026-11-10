@@ -1,0 +1,337 @@
+<title>GA Feature Selection Architecture</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: one reading column; the diagram and tables scroll sideways inside their own frames on narrow screens */
+:root{
+  --bg:#f5f6f8; --surface:#ffffff; --ink:#14181f; --muted:#5a6472; --line:#d8dde4; --soft:#eceff3;
+  --ga:#c2255c; --ga-soft:#fbe9f0; --blue:#2f5d9e; --blue-soft:#e6eefa; --green:#23805a; --green-soft:#e3f4ec;
+  --font:'IBM Plex Sans',system-ui,sans-serif; --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0e1116; --surface:#161a21; --ink:#e8ebf0; --muted:#97a1af; --line:#29303a; --soft:#1e232b;
+  --ga:#f0689a; --ga-soft:#35172a; --blue:#7ba6e8; --blue-soft:#18273d; --green:#56c28b; --green-soft:#14291f; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e1116; --surface:#161a21; --ink:#e8ebf0; --muted:#97a1af; --line:#29303a; --soft:#1e232b;
+  --ga:#f0689a; --ga-soft:#35172a; --blue:#7ba6e8; --blue-soft:#18273d; --green:#56c28b; --green-soft:#14291f; color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:15px;line-height:1.6}
+.page{max-width:1000px;margin:0 auto;padding-inline:16px;padding-block:32px 64px;display:flex;flex-direction:column;gap:44px}
+h1{font-size:clamp(26px,5vw,38px);line-height:1.15;font-weight:600;letter-spacing:-.02em;margin:0;text-wrap:balance}
+h2{font-size:20px;font-weight:600;letter-spacing:-.01em;margin:0 0 6px;text-wrap:balance}
+p{margin:0;max-width:68ch}
+.lede{color:var(--muted);font-size:16px;margin-top:12px}
+.kicker{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--ga);margin-bottom:10px}
+section{display:flex;flex-direction:column;gap:14px;min-width:0}
+.sub{color:var(--muted)}
+code,.mono{font-family:var(--mono);font-size:.88em}
+.frame{background:var(--surface);border:1px solid var(--line);border-radius:6px;overflow-x:auto}
+.frame>svg{display:block;min-width:900px;width:100%;height:auto}
+.frame.chartf>svg{min-width:640px}
+svg text{font-family:var(--font);fill:var(--ink)}
+svg .t-h{font-size:13px;font-weight:600}
+svg .t-s{font-size:11.5px;fill:var(--muted)}
+svg .t-m{font-family:var(--mono);font-size:11.5px}
+svg .t-lab{font-size:11px;fill:var(--muted);font-style:italic}
+svg .zone{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;fill:var(--muted)}
+.bx{fill:var(--surface);stroke:var(--line);stroke-width:1.2}
+.bx-ga{fill:var(--ga-soft);stroke:var(--ga);stroke-width:1.4}
+.bx-in{fill:var(--surface);stroke:var(--ga);stroke-width:1}
+.bx-blue{fill:var(--blue-soft);stroke:var(--blue);stroke-width:1.2}
+.bx-green{fill:var(--green-soft);stroke:var(--green);stroke-width:1.2}
+.ar-train{stroke:var(--blue);stroke-width:1.6;fill:none}
+.ar-test{stroke:var(--green);stroke-width:1.6;fill:none;stroke-dasharray:6 4}
+.ar-ga{stroke:var(--ga);stroke-width:1.6;fill:none}
+.ar-n{stroke:var(--muted);stroke-width:1.4;fill:none}
+.mk-train{fill:var(--blue)} .mk-test{fill:var(--green)} .mk-ga{fill:var(--ga)} .mk-n{fill:var(--muted)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 22px;font-size:13px;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:8px}
+.sw{width:26px;height:0;border-top:2px solid var(--blue)}
+.sw.d{border-top:2px dashed var(--green)}
+.sw.g{border-top:2px solid var(--ga)}
+.trace{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.step{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:14px 16px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.step h3{margin:0;font-size:14px;font-weight:600;display:flex;gap:10px;align-items:baseline}
+.step h3 .n{font-family:var(--mono);font-size:12px;color:var(--ga)}
+.step p{font-size:14px;color:var(--muted)}
+.step pre{margin:0;font-family:var(--mono);font-size:12.5px;line-height:1.55;background:var(--soft);border-radius:4px;padding:10px 12px;overflow-x:auto;white-space:pre;color:var(--ink)}
+.formula{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--ga);border-radius:4px;padding:14px 18px;font-family:var(--mono);font-size:14px;overflow-x:auto;white-space:pre}
+.toy{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:16px;display:flex;flex-direction:column;gap:10px;overflow-x:auto}
+.brow{display:grid;grid-template-columns:92px auto 1fr;gap:14px;align-items:center;min-width:560px}
+.blab{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.bits{display:inline-flex;gap:3px}
+.bit{font-style:normal;font-family:var(--mono);font-size:12px;width:24px;height:24px;display:grid;place-items:center;border-radius:3px;background:var(--soft);color:var(--muted)}
+.bit.on{background:var(--blue-soft);color:var(--blue);font-weight:500}
+.bit.hl{outline:1.5px solid var(--ga);outline-offset:-1.5px}
+.bnote{font-size:13px;color:var(--muted)}
+.tag{display:inline-block;font-family:var(--mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);border:1px solid var(--line);border-radius:3px;padding:1px 7px;vertical-align:1px}
+.chart .grid{stroke:var(--line);stroke-width:1}
+.chart .tick{font-family:var(--mono);font-size:11px;fill:var(--muted)}
+.chart .axl{font-size:12px;fill:var(--muted)}
+.chart .line{fill:none;stroke-width:2.2;stroke-linejoin:round}
+.chart .c-cv{stroke:var(--blue);fill:var(--blue)} .chart .c-fit{stroke:var(--ga);fill:var(--ga)} .chart .c-mean{stroke:var(--muted);fill:var(--muted)}
+.chart .line.c-cv,.chart .line.c-fit,.chart .line.c-mean{fill:none}
+.chart .endlab{font-size:12px;font-weight:500}
+.chart .c-cvt{fill:var(--blue)} .chart .c-fitt{fill:var(--ga)} .chart .c-meant{fill:var(--muted)}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{text-align:left;padding:9px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-family:var(--mono);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:500;background:var(--soft)}
+td.num,th.num{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--mono);font-size:13px}
+tr.hl td{background:var(--ga-soft)}
+tr:last-child td{border-bottom:0}
+.frame table{min-width:560px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+.note{background:var(--surface);border:1px solid var(--line);border-radius:6px;padding:14px 16px;font-size:14px;color:var(--muted);display:flex;flex-direction:column;gap:6px;min-width:0}
+.note b{color:var(--ink);font-weight:600}
+@media (prefers-reduced-motion:no-preference){.step,.note{transition:border-color .15s}.step:hover,.note:hover{border-color:var(--ga)}}
+</style>
+
+<main class="page">
+
+<header>
+  <div class="kicker">System architecture</div>
+  <h1>Genetic Algorithm Feature Selection</h1>
+  <p class="lede">A wrapper-style selector that evolves binary feature masks, scores each mask with cross-validation on the training split only, and is benchmarked on a held-out test split against three standard selectors. Every number on this page comes from the run in <code>outputs/</code>.</p>
+</header>
+
+<section>
+  <div>
+    <h2>End-to-end pipeline</h2>
+    <p class="sub">Training data flows through the GA and the baselines. Test data is touched once, at evaluation.</p>
+  </div>
+  <div class="frame">
+<svg viewBox="0 0 960 690" role="img" aria-label="Architecture diagram: datasets are split, the training part feeds the genetic algorithm selector which queries an estimator for cross-validated scores, the best mask size sets k for three baselines, and both are scored on the held-out test split.">
+  <defs>
+    <marker id="a-train" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="mk-train" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="a-test" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="mk-test" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="a-ga" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="mk-ga" d="M0,0 L10,5 L0,10 z"/></marker>
+    <marker id="a-n" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="mk-n" d="M0,0 L10,5 L0,10 z"/></marker>
+  </defs>
+
+  <!-- Data -->
+  <rect class="bx" x="20" y="30" width="230" height="130" rx="6"/>
+  <text class="zone" x="34" y="50">Data</text>
+  <text class="t-h" x="34" y="74">3 benchmark datasets</text>
+  <text class="t-s" x="34" y="95">Digits 64 + 40 noise = 104</text>
+  <text class="t-s" x="34" y="113">Wine 13 + 40 noise = 53</text>
+  <text class="t-s" x="34" y="131">Synthetic 60 (14 informative)</text>
+  <text class="t-s" x="34" y="149">3 seeds each</text>
+  <line class="ar-n" x1="135" y1="160" x2="135" y2="198" marker-end="url(#a-n)"/>
+
+  <rect class="bx" x="20" y="200" width="230" height="100" rx="6"/>
+  <text class="zone" x="34" y="220">Split</text>
+  <text class="t-h" x="34" y="242">Stratified 70 / 30</text>
+  <text class="t-m" x="34" y="263">train 124 × 53</text>
+  <text class="t-m" x="34" y="281">test   54 × 53</text>
+
+  <!-- train arrow -->
+  <line class="ar-train" x1="250" y1="250" x2="298" y2="250" marker-end="url(#a-train)"/>
+  <text class="t-lab" x="253" y="241">train</text>
+
+  <!-- GA -->
+  <rect class="bx-ga" x="300" y="30" width="360" height="330" rx="8"/>
+  <text class="zone" x="318" y="50">GeneticFeatureSelector</text>
+
+  <rect class="bx-in" x="326" y="66" width="308" height="58" rx="5"/>
+  <text class="t-h" x="340" y="88">1 · Initialise</text>
+  <text class="t-s" x="340" y="108">30 random masks, density 5–40 %, ≥ 1 feature</text>
+
+  <rect class="bx-in" x="326" y="140" width="308" height="58" rx="5"/>
+  <text class="t-h" x="340" y="162">2 · Evaluate fitness</text>
+  <text class="t-m" x="340" y="182">cv_acc − 0.1 · k/n   (cached by mask)</text>
+
+  <rect class="bx-in" x="326" y="214" width="308" height="58" rx="5"/>
+  <text class="t-h" x="340" y="236">3 · Select, cross, mutate</text>
+  <text class="t-s" x="340" y="256">tournament(3) · uniform xover 0.8 · flip p = 2/n</text>
+
+  <rect class="bx-in" x="326" y="288" width="308" height="58" rx="5"/>
+  <text class="t-h" x="340" y="310">4 · Elitism and stop</text>
+  <text class="t-s" x="340" y="330">keep top 2 · stop at 25 gens or 8 stale gens</text>
+
+  <line class="ar-ga" x1="480" y1="124" x2="480" y2="138" marker-end="url(#a-ga)"/>
+  <line class="ar-ga" x1="480" y1="198" x2="480" y2="212" marker-end="url(#a-ga)"/>
+  <line class="ar-ga" x1="480" y1="272" x2="480" y2="286" marker-end="url(#a-ga)"/>
+  <path class="ar-ga" d="M326,317 L312,317 L312,169 L324,169" marker-end="url(#a-ga)"/>
+
+  <!-- Config -->
+  <rect class="bx" x="700" y="30" width="240" height="64" rx="6"/>
+  <text class="zone" x="714" y="50">Config</text>
+  <text class="t-m" x="714" y="70">pop 30 · gens 25 · α 0.1</text>
+  <text class="t-m" x="714" y="86">cv 5 · patience 8</text>
+
+  <!-- Estimator -->
+  <rect class="bx-blue" x="700" y="116" width="240" height="116" rx="6"/>
+  <text class="zone" x="714" y="136">Estimator</text>
+  <text class="t-h" x="714" y="158">sklearn Pipeline</text>
+  <text class="t-s" x="714" y="178">StandardScaler → KNN</text>
+  <text class="t-s" x="714" y="194">StandardScaler → SVC (rbf)</text>
+  <text class="t-s" x="714" y="210">StandardScaler → LogReg</text>
+  <line class="ar-ga" x1="634" y1="152" x2="698" y2="152" marker-end="url(#a-ga)"/>
+  <text class="t-lab" x="640" y="145">X[:, mask]</text>
+  <line class="ar-train" x1="698" y1="190" x2="636" y2="190" marker-end="url(#a-train)"/>
+  <text class="t-lab" x="644" y="205">CV score</text>
+
+  <!-- Best mask -->
+  <line class="ar-ga" x1="480" y1="360" x2="480" y2="388" marker-end="url(#a-ga)"/>
+  <rect class="bx-ga" x="360" y="390" width="240" height="46" rx="6"/>
+  <text class="t-h" x="374" y="410">support_  →  k = 14</text>
+  <text class="t-s" x="374" y="427">best mask and its size</text>
+
+  <!-- Baselines -->
+  <rect class="bx" x="700" y="260" width="240" height="130" rx="6"/>
+  <text class="zone" x="714" y="280">Baselines, same k</text>
+  <text class="t-s" x="714" y="302">MI top-k  (mutual information)</text>
+  <text class="t-s" x="714" y="320">RFE  (logistic regression)</text>
+  <text class="t-s" x="714" y="338">RF importance  (150 trees)</text>
+  <text class="t-s" x="714" y="362">All features  (no selection)</text>
+  <path class="ar-n" d="M600,413 L680,413 L680,350 L698,350" marker-end="url(#a-n)"/>
+  <text class="t-lab" x="610" y="406">k</text>
+
+  <!-- Evaluation -->
+  <path class="ar-ga" d="M480,436 L480,490 L698,490" marker-end="url(#a-ga)"/>
+  <text class="t-lab" x="490" y="482">GA mask</text>
+  <line class="ar-n" x1="820" y1="390" x2="820" y2="438" marker-end="url(#a-n)"/>
+  <text class="t-lab" x="830" y="418">4 masks</text>
+
+  <rect class="bx-green" x="700" y="440" width="240" height="130" rx="6"/>
+  <text class="zone" x="714" y="460">Evaluation</text>
+  <text class="t-h" x="714" y="482">Refit on train, score on test</text>
+  <text class="t-s" x="714" y="503">accuracy · macro-F1</text>
+  <text class="t-s" x="714" y="521">noise features kept</text>
+  <text class="t-s" x="714" y="539">5 methods × 3 clfs</text>
+  <text class="t-s" x="714" y="557">× 3 datasets × 3 seeds</text>
+
+  <!-- test path -->
+  <path class="ar-test" d="M135,300 L135,545 L698,545" marker-end="url(#a-test)"/>
+  <text class="t-lab" x="150" y="537">test, never seen by the GA or any selector</text>
+
+  <!-- Outputs -->
+  <line class="ar-n" x1="820" y1="570" x2="820" y2="618" marker-end="url(#a-n)"/>
+  <rect class="bx" x="20" y="620" width="920" height="50" rx="6"/>
+  <text class="zone" x="34" y="640">outputs/</text>
+  <text class="t-m" x="34" y="659">results_raw.csv · results_summary.csv / .md · ga_history.csv · accuracy_comparison.png · ga_convergence.png · feature_reduction.png</text>
+</svg>
+  </div>
+  <div class="legend">
+    <span><i class="sw"></i>training data, X_train</span>
+    <span><i class="sw d"></i>held-out data, X_test</span>
+    <span><i class="sw g"></i>GA masks and scores</span>
+  </div>
+</section>
+
+<section>
+  <div>
+    <h2>One run, traced</h2>
+    <p class="sub">Wine plus 40 noise columns, SVM, seed 0. Wine contributes 13 real features, so columns 0–12 are signal and 13–52 are noise.</p>
+  </div>
+  <div class="trace">
+    <div class="step">
+      <h3><span class="n">A</span>Input</h3>
+      <p>178 rows are split 70 / 30, stratified by class.</p>
+<pre>X_train  (124, 53)
+X_test   ( 54, 53)
+estimator = StandardScaler → SVC</pre>
+    </div>
+    <div class="step">
+      <h3><span class="n">B</span>Search</h3>
+      <p>The GA stopped after 22 generations because best fitness had not improved for 8. Duplicate masks hit the cache, so 599 of at most 618 possible evaluations ran.</p>
+<pre>generations   22
+evaluations   599 unique masks
+cv fits       599 × 5 folds
+wall time     16.6 s</pre>
+    </div>
+    <div class="step">
+      <h3><span class="n">C</span>Result</h3>
+      <p>Six real Wine features were kept, plus eight noise columns.</p>
+<pre>alcohol, magnesium, flavanoids,
+color_intensity, hue, proline
+noise_6, noise_14, noise_16,
+noise_18, noise_20, noise_29,
+noise_32, noise_33</pre>
+    </div>
+  </div>
+  <div class="formula">fitness = cv_accuracy − α · (k / n)
+        = 1.0000 − 0.1 · (14 / 53)
+        = 1.0000 − 0.0264
+        = 0.9736          ← best_fitness_ at generation 21</div>
+  <p class="sub">The penalty term is what separates a 14-feature mask from a 53-feature mask that scores the same in cross-validation. At α = 0.1, dropping one feature of 53 is worth about 0.0019 accuracy.</p>
+</section>
+
+<section>
+  <div>
+    <h2>Inside the GA loop</h2>
+    <p class="sub">The operators in <code>GeneticFeatureSelector</code>, shown on an 8-feature toy chromosome so every bit is visible. This toy is illustrative, not taken from the run.</p>
+  </div>
+  <div class="toy">
+    <div class="brow"><span class="blab">parent A</span><span class="bits"><i class="bit on">1</i><i class="bit">0</i><i class="bit">0</i><i class="bit on">1</i><i class="bit on">1</i><i class="bit">0</i><i class="bit">0</i><i class="bit">0</i></span><span class="bnote">fitness 0.947 (won tournament)</span></div><div class="brow"><span class="blab">parent B</span><span class="bits"><i class="bit">0</i><i class="bit on">1</i><i class="bit">0</i><i class="bit on">1</i><i class="bit">0</i><i class="bit">0</i><i class="bit on">1</i><i class="bit">0</i></span><span class="bnote">fitness 0.931 (won tournament)</span></div><div class="brow"><span class="blab">swap mask</span><span class="bits"><i class="bit on hl">1</i><i class="bit">0</i><i class="bit on hl">1</i><i class="bit">0</i><i class="bit on hl">1</i><i class="bit">0</i><i class="bit">0</i><i class="bit on hl">1</i></span><span class="bnote">random, p = 0.5 per bit; 1 takes the bit from A in child 1</span></div><div class="brow"><span class="blab">child 1</span><span class="bits"><i class="bit on">1</i><i class="bit on">1</i><i class="bit">0</i><i class="bit on">1</i><i class="bit on">1</i><i class="bit">0</i><i class="bit on">1</i><i class="bit">0</i></span><span class="bnote">where(swap, A, B)</span></div><div class="brow"><span class="blab">child 2</span><span class="bits"><i class="bit">0</i><i class="bit">0</i><i class="bit">0</i><i class="bit on">1</i><i class="bit">0</i><i class="bit">0</i><i class="bit">0</i><i class="bit">0</i></span><span class="bnote">where(swap, B, A)</span></div><div class="brow"><span class="blab">mutated 2</span><span class="bits"><i class="bit">0</i><i class="bit">0</i><i class="bit on hl">1</i><i class="bit on">1</i><i class="bit">0</i><i class="bit">0</i><i class="bit">0</i><i class="bit">0</i></span><span class="bnote">bit 2 flipped; if a child ends up all zeros, one random feature is switched on</span></div>
+  </div>
+  <div class="grid2">
+    <div class="note"><b>Chromosome</b>A boolean vector of length n. Bit i is 1 when feature i is kept. The Wine run uses 53 bits.</div>
+    <div class="note"><b>Tournament selection</b>Draw 3 random individuals, keep the fittest. Example: draws with fitness 0.912, 0.947 and 0.931 return the 0.947 individual.</div>
+    <div class="note"><b>Mutation rate</b>Each bit flips with probability 2 / n, about two flips per child. At n = 53 that is p ≈ 0.038.</div>
+    <div class="note"><b>Elitism</b>The two best masks pass unchanged, so best fitness never drops from one generation to the next.</div>
+  </div>
+</section>
+
+<section>
+  <div>
+    <h2>Convergence on the traced run</h2>
+    <p class="sub">Best fitness climbs from 0.914 to 0.974 while the population mean rises from 0.672 to 0.942 as random masks are replaced.</p>
+  </div>
+  <div class="frame chartf"><svg class="chart" viewBox="0 0 780 330" role="img" aria-label="Convergence of the GA over 25 generations on Wine plus 40 noise features with an SVM"><line class="grid" x1="54" x2="630" y1="247.4" y2="247.4"/><text class="tick" x="46" y="251.4" text-anchor="end">0.70</text><line class="grid" x1="54" x2="630" y1="170.3" y2="170.3"/><text class="tick" x="46" y="174.3" text-anchor="end">0.80</text><line class="grid" x1="54" x2="630" y1="93.1" y2="93.1"/><text class="tick" x="46" y="97.1" text-anchor="end">0.90</text><line class="grid" x1="54" x2="630" y1="16.0" y2="16.0"/><text class="tick" x="46" y="20.0" text-anchor="end">1.00</text><text class="tick" x="54.0" y="304" text-anchor="middle">0</text><text class="tick" x="150.0" y="304" text-anchor="middle">4</text><text class="tick" x="246.0" y="304" text-anchor="middle">8</text><text class="tick" x="342.0" y="304" text-anchor="middle">12</text><text class="tick" x="438.0" y="304" text-anchor="middle">16</text><text class="tick" x="534.0" y="304" text-anchor="middle">20</text><text class="tick" x="630.0" y="304" text-anchor="middle">24</text><path class="line c-cv" d="M54.0,59.5 L78.0,59.5 L102.0,28.3 L126.0,28.3 L150.0,34.5 L174.0,22.2 L198.0,22.2 L222.0,22.2 L246.0,22.2 L270.0,22.2 L294.0,22.2 L318.0,22.2 L342.0,16.0 L366.0,16.0 L390.0,16.0 L414.0,16.0 L438.0,16.0 L462.0,16.0 L486.0,16.0 L510.0,16.0 L534.0,16.0 L558.0,16.0"/><path class="line c-fit" d="M54.0,82.7 L78.0,82.7 L102.0,61.8 L126.0,61.8 L150.0,59.3 L174.0,51.3 L198.0,51.3 L222.0,45.5 L246.0,42.5 L270.0,42.5 L294.0,42.5 L318.0,42.5 L342.0,40.7 L366.0,36.4 L390.0,36.4 L414.0,36.4 L438.0,36.4 L462.0,36.4 L486.0,36.4 L510.0,36.4 L534.0,36.4 L558.0,36.4"/><path class="line c-mean" d="M54.0,269.1 L78.0,148.4 L102.0,114.1 L126.0,95.9 L150.0,81.4 L174.0,69.6 L198.0,68.7 L222.0,68.6 L246.0,61.5 L270.0,63.6 L294.0,63.0 L318.0,64.7 L342.0,59.5 L366.0,59.5 L390.0,56.1 L414.0,57.0 L438.0,58.1 L462.0,56.7 L486.0,54.8 L510.0,60.2 L534.0,61.5 L558.0,60.9"/><circle class="dot c-cv" cx="630.0" cy="16.0" r="3.5"/><text class="endlab c-cvt" x="640.0" y="20.0">best CV accuracy 1.000</text><circle class="dot c-fit" cx="630.0" cy="36.4" r="3.5"/><text class="endlab c-fitt" x="640.0" y="40.4">best fitness 0.974</text><circle class="dot c-mean" cx="630.0" cy="60.9" r="3.5"/><text class="endlab c-meant" x="640.0" y="64.9">population mean 0.942</text><text class="axl" x="342" y="324" text-anchor="middle">generation</text></svg></div>
+  <p class="sub">The gap between best CV accuracy and best fitness is the size penalty. At generation 21 it is 0.0264, which is 14 of 53 features at α = 0.1.</p>
+</section>
+
+<section>
+  <div>
+    <h2>Same run, scored on the test split</h2>
+    <p class="sub">Each baseline is given k = 14 so every method has the same feature budget.</p>
+  </div>
+  <div class="frame">
+    <table>
+      <thead><tr><th>Method</th><th class="num">Features</th><th class="num">Noise kept</th><th class="num">Accuracy</th><th class="num">Macro-F1</th></tr></thead>
+      <tbody>
+        <tr><td>All features</td><td class="num">53</td><td class="num">40</td><td class="num">0.9444</td><td class="num">0.9475</td></tr>
+        <tr><td>MI top-k</td><td class="num">14</td><td class="num">2</td><td class="num">1.0000</td><td class="num">1.0000</td></tr>
+        <tr><td>RFE</td><td class="num">14</td><td class="num">3</td><td class="num">1.0000</td><td class="num">1.0000</td></tr>
+        <tr><td>RF importance</td><td class="num">14</td><td class="num">1</td><td class="num">1.0000</td><td class="num">1.0000</td></tr>
+        <tr class="hl"><td>Genetic Algorithm</td><td class="num">14</td><td class="num">8</td><td class="num">0.9630</td><td class="num">0.9652</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p class="sub">On this single split the three filters beat the GA by two test samples out of 54, and the GA kept eight noise columns against 2, 3 and 1. Across all 27 GA runs (3 datasets × 3 classifiers × 3 seeds) the mean test accuracy is 0.934 for the GA, 0.939 for MI, 0.936 for RFE, 0.940 for RF importance and 0.884 for all features. The GA trails the baselines by 0.2 to 0.6 points and beats using every column by 5 points while keeping 71 % fewer columns (20.9 against 72.3 on average). Fitting the mask to one classifier did not translate into higher test accuracy on these benchmarks.</p>
+</section>
+
+<section>
+  <div>
+    <h2>Components</h2>
+    <p class="sub">Two files, one reusable class and one experiment driver.</p>
+  </div>
+  <div class="frame">
+    <table>
+      <thead><tr><th>File</th><th>Symbol</th><th>Responsibility</th></tr></thead>
+      <tbody>
+        <tr><td class="mono">ga_feature_selection.py</td><td class="mono">GeneticFeatureSelector</td><td>scikit-learn compatible selector with <code>fit</code>, <code>transform</code>, <code>get_support</code>. Holds the population, the fitness cache and <code>history_</code>.</td></tr>
+        <tr><td class="mono">ga_feature_selection.py</td><td class="mono">_score, _repair</td><td>Cached cross-validated fitness. Repair switches on random features when a mask has fewer than <code>min_features</code>.</td></tr>
+        <tr><td class="mono">run_experiment.py</td><td class="mono">load_datasets</td><td>Builds the three benchmarks and appends Gaussian noise columns.</td></tr>
+        <tr><td class="mono">run_experiment.py</td><td class="mono">baseline_masks</td><td>Fits MI, RFE and RF importance on train data with k taken from the GA.</td></tr>
+        <tr><td class="mono">run_experiment.py</td><td class="mono">evaluate, summarize</td><td>Refits each classifier on the selected columns, scores test accuracy and macro-F1, aggregates over seeds.</td></tr>
+        <tr><td class="mono">run_experiment.py</td><td class="mono">plot_*</td><td>Writes the accuracy, convergence and feature-reduction figures.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <div>
+    <h2>Design decisions</h2>
+  </div>
+  <div class="grid2">
+    <div class="note"><b>No test leakage</b>The GA, the CV folds and every baseline see only X_train. The test split is used once, for scoring.</div>
+    <div class="note"><b>Equal feature budget</b>Baselines take k from the GA result, so a difference in accuracy is not a difference in subset size.</div>
+    <div class="note"><b>Fitness cache</b>Masks are keyed by their bytes. Elites and repeated children cost nothing, which saved 19 of 618 evaluations in the traced run.</div>
+    <div class="note"><b>Penalty tuning</b>At α = 0.02 the GA kept 28 features on Wine with KNN in an earlier tuning run. At α = 0.1 the same setup kept 17.</div>
+    <div class="note"><b>Classifier swap</b>Random forest was replaced by logistic regression because a forest took about 60 s per GA run, against 15 to 66 s for the three final classifiers.</div>
+    <div class="note"><b>Cost</b>About 655 evaluations × 5 folds, roughly 3,300 model fits and 29 s per GA run on average.</div>
+  </div>
+</section>
+
+</main>
